@@ -3,7 +3,7 @@
 
 import knapsack
 from collections import namedtuple
-Item = namedtuple("Item", ['index', 'value', 'weight'])
+Item = namedtuple("Item", ['index', 'value', 'weight', 'density'])
 
 
 def solve_it(input_data):
@@ -21,7 +21,10 @@ def solve_it(input_data):
     for i in range(1, item_count + 1):
         line = lines[i]
         parts = line.split()
-        items.append(Item(i - 1, int(parts[0]), int(parts[1])))
+        items.append(Item(i - 1,
+                          int(parts[0]),
+                          int(parts[1]),
+                          int(parts[0]) / int(parts[1])))
 
     # solve_it
     output_data = knapsack.dynamic_programing(items, item_count, capacity)

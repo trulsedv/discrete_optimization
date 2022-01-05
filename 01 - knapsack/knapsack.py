@@ -46,4 +46,7 @@ def dynamic_programing(items, item_count, capacity):
 
     return output_data
 
-def least_discrepancy_search(items, item_count, capacity):
+# def least_discrepancy_search(items, item_count, capacity):
+#     density_vector = np.zeros((item_count, 2))
+#     for item in items:
+        

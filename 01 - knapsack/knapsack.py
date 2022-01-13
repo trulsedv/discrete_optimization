@@ -51,120 +51,163 @@ def dynamic_programing(items, item_count, capacity):
 
 def linear_relaxation(items_sorted, indices, value, room):
     estimate = value
+    density = 0
     for item in items_sorted:
         if item.index not in indices:
             if item.weight <= room:
                 estimate += item.value
                 room -= item.weight
+                density = item.density
             else:
                 estimate += room / item.weight * item.value
                 room = 0  # -= room / item.weight * item.weight
+                density = item.density
                 break
-    return estimate
+    return estimate, density
 
 
 def DFS_iterative(items, item_count, capacity):
-    debug = False
+    # print(f'\nNEW INPUT\nitem count: {item_count}, capacity: {capacity}',
+    #       flush=True)
+    # print('Depth First Search, Branch and Bound', flush=True)
 
-    print('depth_first_branch_and_bound', flush=True)
+    debug = False
     start = time.time()
     start_timer = start
 
-    items_sorted = sorted(items, key=lambda x: x.weight)
-    items_sorted = sorted(items_sorted, key=lambda x: x.density, reverse=True)
-    estimate = linear_relaxation(items_sorted, [], 0, capacity)
-    print('linear_relaxation', flush=True)
+    # SORT ITEMS
+    items_sorted_by_density = sorted(items, key=lambda x: x.weight)
+    items_sorted_by_density = sorted(items_sorted_by_density,
+                                     key=lambda x: x.density, reverse=True)
+    items_sorted = items_sorted_by_density
+    # print('Items sorted by density', flush=True)
+    if debug:
+        pprint(items_sorted)
 
-    items = items_sorted
-    print('items_sorted_by_density', flush=True)
+    # LINEAR RELAXATION
+    estimate, c_density = linear_relaxation(items_sorted_by_density, [], 0,
+                                            capacity)
+    # print('Linear Relaxation', flush=True)
+    # print(f'estimate: {estimate}, critical density: {c_density}', flush=True)
 
+    # PREPARATION
     best_solution = 0
     best_taken = []
+    node = {'value': 0, 'room': capacity, 'estimate': estimate,
+            'taken': [], 'indices': []}
+    stack = [node]
+    nodes_visited = 0
 
-    vertex = {'value': 0, 'room': capacity, 'estimate': estimate,
-              'taken': [], 'indices': []}
-    if debug:
-        pprint(items)
-
-    stack = []
-    stack.append(vertex)
+    # ITERATION
     while stack:
-        vertex = stack.pop()
+        nodes_visited += 1
+        node = stack.pop()
+        tree_depth = len(node['taken'])
+        result = bounding(node, tree_depth, item_count, best_solution)
 
-        item_index = len(vertex['taken']) - 1
-        end_timer = time.time()
-
-        if end_timer - start > 36000:
-            break
-        elif end_timer - start_timer > 10:
-            print('still running, elapsed time: '
-                  + str(end_timer - start), flush=True)
-            start_timer = time.time()
+        if result == 'branch':
+            X = [0, 1]
+            # if items_sorted[tree_depth].density <= c_density:
+            #     X = [1, 0]
+            for x in X:
+                child_node = deepcopy(node)
+                child_node['indices'].append(items_sorted[tree_depth].index)
+                child_node['taken'].append(x)
+                child_node = calculate_node(items_sorted,
+                                            items_sorted_by_density,
+                                            child_node,
+                                            tree_depth)
+                stack.append(child_node)
+        elif result == 'solution':
+            if node['value'] > best_solution:
+                best_solution = node['value']
+                best_taken = node['taken']
 
         if debug:
-            print(vertex['taken'])
+            debug_print(node, result, best_solution)
 
-        if item_index >= 0:
-            vertex['room'] -= (vertex['taken'][item_index]
-                               * items[item_index].weight)
+        end_timer = time.time()
+        # if end_timer - start_timer > 10:
+        #     print(f'still running, elapsed time: {end_timer - start:.2f}'
+        #           f', nodes visited: {nodes_visited}', flush=True)
+        #     # input('press any button to continue...')
+        #     start_timer = time.time()
+        if end_timer - start > 60:
+            print(f'stopped after 60 s')
+            break
 
-        if vertex['room'] >= 0:
-            if item_index >= 0:
-                vertex['value'] += (vertex['taken'][item_index]
-                                    * items[item_index].value)
-            if item_index >= 0:
-                vertex['estimate'] = linear_relaxation(items_sorted,
-                                                       vertex['indices'],
-                                                       vertex['value'],
-                                                       vertex['room'])
-
-            if item_index + 1 < item_count:
-                if vertex['estimate'] > (1 + 1e-3) * best_solution:
-                    if debug:
-                        print('value = ' + str(vertex['value'])
-                              + ' | room = ' + str(vertex['room'])
-                              + ' | estimate = ' + str(vertex['estimate'])
-                              + ' | best_solution = '
-                              + str(best_solution)
-                              + ' ---> BRANCH')
-                    for x in range(2):
-                        w = deepcopy(vertex)
-                        w['taken'].append(x)
-                        w['indices'].append(items[item_index + 1].index)
-                        stack.append(w)
-                else:
-                    if debug:
-                        print('value = ' + str(vertex['value'])
-                              + ' | room = ' + str(vertex['room'])
-                              + ' | estimate = ' + str(vertex['estimate'])
-                              + ' | best_solution = '
-                              + str(best_solution)
-                              + ' ---> BOUND')
-            else:
-                if vertex['value'] > best_solution:
-                    best_solution = vertex['value']
-                    best_taken = vertex['taken']
-                if debug:
-                    print('value = ' + str(vertex['value'])
-                          + ' | room = ' + str(vertex['room'])
-                          + ' | estimate = ' + str(vertex['estimate'])
-                          + ' | best_solution = ' + str(best_solution)
-                          + ' ---> SOLUTION = '
-                          + str(vertex['value']))
-        else:
-            if debug:
-                print('value = ' + '---'
-                      + ' | room = ' + str(vertex['room'])
-                      + ' | estimate = ' + '---'
-                      + ' | best_solution = ' + str(best_solution)
-                      + ' ---> INFEASIBLE')
+    # SORT TAKEN AND OUTPUT
+    taken = np.zeros((item_count,), dtype=int)
+    for idx, item in enumerate(items_sorted):
+        taken[item.index] = best_taken[idx]
+    output_data = str(best_solution) + ' ' + str(0) + '\n'
+    output_data += ' '.join(map(str, taken))
 
     end = time.time()
-    print('elapsed time: ' + str(end - start))
-
-    output_data = str(best_solution) + ' ' + str(0) + '\n'
-    output_data += ' '.join(map(str, best_taken))
+    nodes = 0
+    for i in range(item_count + 1):
+        nodes += 2**i
+    print(f'elapsed time: {end - start:10.4f} s, '
+          f'nodes visited: {nodes_visited:10d}, '
+          f'nodes in tree: {nodes:.2E}, '
+          f'visited: {100*nodes_visited/nodes:.2E} %\n')
     return output_data
+
+
+def calculate_node(items, items_sorted_by_density, node, tree_depth):
+    node['room'] -= (node['taken'][tree_depth] * items[tree_depth].weight)
+    node['value'] += (node['taken'][tree_depth] * items[tree_depth].value)
+    node['estimate'] = linear_relaxation(items_sorted_by_density,
+                                         node['indices'],
+                                         node['value'],
+                                         node['room'])[0]
+    return node
+
+
+def bounding(node, tree_depth, item_count, best_solution):
+    if node['room'] >= 0:
+        if tree_depth < item_count:
+            if node['estimate'] > best_solution:
+                result = 'branch'
+            else:
+                result = 'bound'
+        else:
+            result = 'solution'
+    else:
+        result = 'infeasible'
+    return result
+
+
+def debug_print(node, result, best_solution):
+    print(node['taken'])
+    if result == 'branch':
+        print('value = ' + str(node['value'])
+              + ' | room = ' + str(node['room'])
+              + ' | estimate = ' + str(node['estimate'])
+              + ' | best_solution = '
+              + str(best_solution)
+              + ' ---> BRANCH')
+    elif result == 'bound':
+        print('value = ' + str(node['value'])
+              + ' | room = ' + str(node['room'])
+              + ' | estimate = ' + str(node['estimate'])
+              + ' | best_solution = '
+              + str(best_solution)
+              + ' ---> BOUND')
+    elif result == 'solution':
+        print('value = ' + str(node['value'])
+              + ' | room = ' + str(node['room'])
+              + ' | estimate = ' + str(node['estimate'])
+              + ' | best_solution = ' + str(best_solution)
+              + ' ---> SOLUTION = '
+              + str(node['value']))
+    elif result == 'infeasible':
+        print('value = ' + '---'
+              + ' | room = ' + str(node['room'])
+              + ' | estimate = ' + '---'
+              + ' | best_solution = ' + str(best_solution)
+              + ' ---> INFEASIBLE')
+
 
 # def density_sort(items, item_count, capacity):
 #     taken = np.zeros((item_count,), dtype=int)

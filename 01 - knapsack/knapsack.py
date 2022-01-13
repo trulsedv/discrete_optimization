@@ -1,9 +1,7 @@
 import numpy as np
 from pprint import pprint
 from copy import deepcopy
-import sys
-# sys.setrecursionlimit(10000 - 1)
-print(sys.getrecursionlimit())
+import time
 
 
 def dynamic_programing(items, item_count, capacity):
@@ -51,27 +49,10 @@ def dynamic_programing(items, item_count, capacity):
     return output_data
 
 
-def density_sort(items, item_count, capacity):
-    taken = np.zeros((item_count,), dtype=int)
-    items_sorted = sorted(items, key=lambda x: x.weight)
-    items_sorted = sorted(items, key=lambda x: x.density, reverse=True)
-    value = 0
-    weight = 0
-    for item in items_sorted:
-        if weight + item.weight <= capacity:
-            value += item.value
-            weight += item.weight
-            taken[item.index] = 1
-
-    output_data = str(value) + ' ' + str(0) + '\n'
-    output_data += ' '.join(map(str, taken))
-    return output_data
-
-
-def linear_relaxation(items, item_index, value, room):
+def linear_relaxation(items_sorted, indices, value, room):
     estimate = value
-    for idx, item in enumerate(items):
-        if idx >= item_index:
+    for item in items_sorted:
+        if item.index not in indices:
             if item.weight <= room:
                 estimate += item.value
                 room -= item.weight
@@ -82,113 +63,235 @@ def linear_relaxation(items, item_index, value, room):
     return estimate
 
 
-def depth_first_branch_and_bound(items, item_count, capacity):
-    # estimate = 0
-    # for item in items:
-    #     estimate += item.value
+def DFS_iterative(items, item_count, capacity):
+    debug = False
+
+    print('depth_first_branch_and_bound', flush=True)
+    start = time.time()
+    start_timer = start
+
     items_sorted = sorted(items, key=lambda x: x.weight)
     items_sorted = sorted(items_sorted, key=lambda x: x.density, reverse=True)
-    estimate = linear_relaxation(items, 0, 0, capacity)
-    branch_0 = {'taken': [], 'value': 0, 'room': capacity,
-                'estimate': estimate, 'best_solution': 0}
+    estimate = linear_relaxation(items_sorted, [], 0, capacity)
+    print('linear_relaxation', flush=True)
 
-    debug = False
+    items = items_sorted
+    print('items_sorted_by_density', flush=True)
+
+    best_solution = 0
+    best_taken = []
+
+    vertex = {'value': 0, 'room': capacity, 'estimate': estimate,
+              'taken': [], 'indices': []}
     if debug:
-        pprint(items_sorted)
-        print('value = ' + str(branch_0['value'])
-              + ' | room = ' + str(branch_0['room'])
-              + ' | estimate = ' + str(branch_0['estimate'])
-              + ' | best_solution = ' + str(branch_0['best_solution'])
-              + ' ---> BRANCH')
-    branch = branching(items_sorted, branch_0, debug)
+        pprint(items)
 
-    value = branch['value']
-    taken = np.zeros((item_count,), dtype=int)
-    for idx, item in enumerate(items_sorted):
-        taken[item.index] = branch['taken'][idx]
+    stack = []
+    stack.append(vertex)
+    while stack:
+        vertex = stack.pop()
 
-    output_data = str(value) + ' ' + str(0) + '\n'
-    output_data += ' '.join(map(str, taken))
-    return output_data
+        item_index = len(vertex['taken']) - 1
+        end_timer = time.time()
 
+        if end_timer - start > 36000:
+            break
+        elif end_timer - start_timer > 10:
+            print('still running, elapsed time: '
+                  + str(end_timer - start), flush=True)
+            start_timer = time.time()
 
-def branching(items, branch_0, debug):
-    branches = []
-    branches.append(deepcopy(branch_0))
-    branches.append(deepcopy(branch_0))
-    item_index = len(branch_0['taken'])
-    best_solution = branch_0['best_solution']
-
-    # iterate over the two branches (choose or not choose next item)
-    for x in [1, 0]:
-        branches[x]['best_solution'] = best_solution
-        branches[x]['taken'].append(x)
         if debug:
-            print("taken: " + str(branches[x]['taken']))
+            print(vertex['taken'])
 
-        # check if contraint is upheld, if not the branch is infeasible
-        branches[x]['room'] -= x * items[item_index].weight
-        if branches[x]['room'] >= 0:
-            branches[x]['value'] += x * items[item_index].value
+        if item_index >= 0:
+            vertex['room'] -= (vertex['taken'][item_index]
+                               * items[item_index].weight)
 
-            # branches[x]['estimate'] -= (1 - x) * items[item_index].value
-            branches[x]['estimate'] = linear_relaxation(items, item_index + 1,
-                                                        branches[x]['value'],
-                                                        branches[x]['room'])
+        if vertex['room'] >= 0:
+            if item_index >= 0:
+                vertex['value'] += (vertex['taken'][item_index]
+                                    * items[item_index].value)
+            if item_index >= 0:
+                vertex['estimate'] = linear_relaxation(items_sorted,
+                                                       vertex['indices'],
+                                                       vertex['value'],
+                                                       vertex['room'])
 
-            # check if further branching is possible, if not this is a solution
-            if item_index + 1 < len(items):
-
-                # check if estimate of this branch is better than the best
-                # solution found, if not bound
-                if branches[x]['estimate'] > 1.1 * best_solution:
+            if item_index + 1 < item_count:
+                if vertex['estimate'] > (1 + 1e-3) * best_solution:
                     if debug:
-                        print('value = ' + str(branches[x]['value'])
-                              + ' | room = ' + str(branches[x]['room'])
-                              + ' | estimate = ' + str(branches[x]['estimate'])
+                        print('value = ' + str(vertex['value'])
+                              + ' | room = ' + str(vertex['room'])
+                              + ' | estimate = ' + str(vertex['estimate'])
                               + ' | best_solution = '
                               + str(best_solution)
                               + ' ---> BRANCH')
-                    branches[x] = branching(items, branches[x], debug)
+                    for x in range(2):
+                        w = deepcopy(vertex)
+                        w['taken'].append(x)
+                        w['indices'].append(items[item_index + 1].index)
+                        stack.append(w)
                 else:
-                    branches[x]['best_solution'] = -1
                     if debug:
-                        print('value = ' + str(branches[x]['value'])
-                              + ' | room = ' + str(branches[x]['room'])
-                              + ' | estimate = ' + str(branches[x]['estimate'])
+                        print('value = ' + str(vertex['value'])
+                              + ' | room = ' + str(vertex['room'])
+                              + ' | estimate = ' + str(vertex['estimate'])
                               + ' | best_solution = '
                               + str(best_solution)
                               + ' ---> BOUND')
             else:
-                branches[x]['best_solution'] = branches[x]['value']
+                if vertex['value'] > best_solution:
+                    best_solution = vertex['value']
+                    best_taken = vertex['taken']
                 if debug:
-                    print('value = ' + str(branches[x]['value'])
-                          + ' | room = ' + str(branches[x]['room'])
-                          + ' | estimate = ' + str(branches[x]['estimate'])
+                    print('value = ' + str(vertex['value'])
+                          + ' | room = ' + str(vertex['room'])
+                          + ' | estimate = ' + str(vertex['estimate'])
                           + ' | best_solution = ' + str(best_solution)
                           + ' ---> SOLUTION = '
-                          + str(branches[x]['best_solution']))
+                          + str(vertex['value']))
         else:
-            branches[x]['value'] = -1
-            branches[x]['estimate'] = -1
-            branches[x]['best_solution'] = -1
             if debug:
-                print('value = ' + str(branches[x]['value'])
-                      + ' | room = ' + str(branches[x]['room'])
-                      + ' | estimate = ' + str(branches[x]['estimate'])
+                print('value = ' + '---'
+                      + ' | room = ' + str(vertex['room'])
+                      + ' | estimate = ' + '---'
                       + ' | best_solution = ' + str(best_solution)
                       + ' ---> INFEASIBLE')
-        if branches[x]['best_solution'] > best_solution:
-            best_solution = branches[x]['best_solution']
 
-    branch = max(branches, key=lambda x: x['best_solution'])
-    if debug:
-        print('return to ' + str(branch_0['taken'])
-              + ', best solution = ' + str(best_solution))
-        input('press key to continue...')
-    return branch
+    end = time.time()
+    print('elapsed time: ' + str(end - start))
+
+    output_data = str(best_solution) + ' ' + str(0) + '\n'
+    output_data += ' '.join(map(str, best_taken))
+    return output_data
+
+# def density_sort(items, item_count, capacity):
+#     taken = np.zeros((item_count,), dtype=int)
+#     items_sorted = sorted(items, key=lambda x: x.weight)
+#     items_sorted = sorted(items, key=lambda x: x.density, reverse=True)
+#     value = 0
+#     weight = 0
+#     for item in items_sorted:
+#         if weight + item.weight <= capacity:
+#             value += item.value
+#             weight += item.weight
+#             taken[item.index] = 1
+
+#     output_data = str(value) + ' ' + str(0) + '\n'
+#     output_data += ' '.join(map(str, taken))
+#     return output_data
+
+# def depth_first_branch_and_bound(items, item_count, capacity):
+#     # estimate = 0
+#     # for item in items:
+#     #     estimate += item.value
+#     items_sorted = sorted(items, key=lambda x: x.weight)
+#     items_sorted = sorted(items_sorted, key=lambda x: x.density,
+#                           reverse=True)
+#     estimate = linear_relaxation(items, 0, 0, capacity)
+#     branch_0 = {'taken': [], 'value': 0, 'room': capacity,
+#                 'estimate': estimate, 'best_solution': 0}
+
+#     debug = False
+#     if debug:
+#         pprint(items_sorted)
+#         print('value = ' + str(branch_0['value'])
+#               + ' | room = ' + str(branch_0['room'])
+#               + ' | estimate = ' + str(branch_0['estimate'])
+#               + ' | best_solution = ' + str(branch_0['best_solution'])
+#               + ' ---> BRANCH')
+#     branch = branching(items_sorted, branch_0, debug)
+
+#     value = branch['value']
+#     taken = np.zeros((item_count,), dtype=int)
+#     for idx, item in enumerate(items_sorted):
+#         taken[item.index] = branch['taken'][idx]
+
+#     output_data = str(value) + ' ' + str(0) + '\n'
+#     output_data += ' '.join(map(str, taken))
+#     return output_data
 
 
+# def branching(items, branch_0, debug):
+#     branches = []
+#     branches.append(deepcopy(branch_0))
+#     branches.append(deepcopy(branch_0))
+#     item_index = len(branch_0['taken'])
+#     best_solution = branch_0['best_solution']
+
+#     # iterate over the two branches (choose or not choose next item)
+#     for x in [1, 0]:
+#         branches[x]['best_solution'] = best_solution
+#         branches[x]['taken'].append(x)
+#         if debug:
+#             print("taken: " + str(branches[x]['taken']))
+
+#         # check if contraint is upheld, if not the branch is infeasible
+#         branches[x]['room'] -= x * items[item_index].weight
+#         if branches[x]['room'] >= 0:
+#             branches[x]['value'] += x * items[item_index].value
+
+#             # branches[x]['estimate'] -= (1 - x) * items[item_index].value
+#             branches[x]['estimate'] = linear_relaxation(items,
+#                                                         item_index + 1,
+#                                                         branches[x]['value'],
+#                                                         branches[x]['room'])
+
+#             # check if further branching is possible,
+#             # if not this is a solution
+#             if item_index + 1 < len(items):
+
+#                 # check if estimate of this branch is better than the best
+#                 # solution found, if not bound
+#                 if branches[x]['estimate'] > 1.1 * best_solution:
+#                     if debug:
+#                         print('value = ' + str(branches[x]['value'])
+#                               + ' | room = ' + str(branches[x]['room'])
+#                               + ' | estimate = '
+#                               + str(branches[x]['estimate'])
+#                               + ' | best_solution = '
+#                               + str(best_solution)
+#                               + ' ---> BRANCH')
+#                     branches[x] = branching(items, branches[x], debug)
+#                 else:
+#                     branches[x]['best_solution'] = -1
+#                     if debug:
+#                         print('value = ' + str(branches[x]['value'])
+#                               + ' | room = ' + str(branches[x]['room'])
+#                               + ' | estimate = '
+#                               + str(branches[x]['estimate'])
+#                               + ' | best_solution = '
+#                               + str(best_solution)
+#                               + ' ---> BOUND')
+#             else:
+#                 branches[x]['best_solution'] = branches[x]['value']
+#                 if debug:
+#                     print('value = ' + str(branches[x]['value'])
+#                           + ' | room = ' + str(branches[x]['room'])
+#                           + ' | estimate = ' + str(branches[x]['estimate'])
+#                           + ' | best_solution = ' + str(best_solution)
+#                           + ' ---> SOLUTION = '
+#                           + str(branches[x]['best_solution']))
+#         else:
+#             branches[x]['value'] = -1
+#             branches[x]['estimate'] = -1
+#             branches[x]['best_solution'] = -1
+#             if debug:
+#                 print('value = ' + str(branches[x]['value'])
+#                       + ' | room = ' + str(branches[x]['room'])
+#                       + ' | estimate = ' + str(branches[x]['estimate'])
+#                       + ' | best_solution = ' + str(best_solution)
+#                       + ' ---> INFEASIBLE')
+#         if branches[x]['best_solution'] > best_solution:
+#             best_solution = branches[x]['best_solution']
+
+#     branch = max(branches, key=lambda x: x['best_solution'])
+#     if debug:
+#         print('return to ' + str(branch_0['taken'])
+#               + ', best solution = ' + str(best_solution))
+#         input('press key to continue...')
+#     return branch
 # def depth_first_branch_and_bound(items, item_count, capacity):
 #     estimate = 0
 #     for item in items:

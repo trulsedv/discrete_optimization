@@ -1,7 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import time
 import knapsack
 from collections import namedtuple
 Item = namedtuple("Item", ['index', 'value', 'weight', 'density'])
@@ -28,17 +27,8 @@ def solve_it(input_data):
                           int(parts[0]) / int(parts[1])))
 
     # solve_it
-    start = time.time()
-    if item_count < 1e0 and capacity < 1e7:
-        print('dynamic_programing', flush=True)
-        output_data = knapsack.dynamic_programing(items, item_count,
-                                                  capacity)
-    elif item_count < 1e6:
-        print('depth_first_branch_and_bound', flush=True)
-        output_data = knapsack.depth_first_branch_and_bound(
-            items, item_count, capacity)
-    end = time.time()
-    print('elapsed time: ' + str(end - start))
+    output_data = knapsack.DFS_iterative(items, item_count, capacity)
+    # output_data = knapsack.dynamic_programing(items, item_count, capacity)
 
     return output_data
 

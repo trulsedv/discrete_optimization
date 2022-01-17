@@ -2,6 +2,9 @@ import numpy as np
 from pprint import pprint
 from copy import deepcopy
 import time
+from collections import deque
+import cProfile
+import pstats
 
 
 def dynamic_programing(items, item_count, capacity):
@@ -74,6 +77,8 @@ def DFS_iterative(items, item_count, capacity):
     debug = False
     start = time.time()
     start_timer = start
+    profile = cProfile.Profile()
+    profile.enable()
 
     # SORT ITEMS
     items_sorted_by_density = sorted(items, key=lambda x: x.weight)
@@ -91,11 +96,13 @@ def DFS_iterative(items, item_count, capacity):
     # print(f'estimate: {estimate}, critical density: {c_density}', flush=True)
 
     # PREPARATION
+    # stack = deque()
+    stack = []
     best_solution = 0
     best_taken = []
     node = {'value': 0, 'room': capacity, 'estimate': estimate,
             'taken': [], 'indices': []}
-    stack = [node]
+    stack.append(node)
     nodes_visited = 0
 
     # ITERATION
@@ -110,9 +117,15 @@ def DFS_iterative(items, item_count, capacity):
             # if items_sorted[tree_depth].density <= c_density:
             #     X = [1, 0]
             for x in X:
-                child_node = deepcopy(node)
-                child_node['indices'].append(items_sorted[tree_depth].index)
-                child_node['taken'].append(x)
+                child_node = {'value': node['value'],
+                              'room': node['room'],
+                              'estimate': node['estimate'],
+                              'taken': node['taken'] + [x],
+                              'indices': node['indices']
+                              + [items_sorted[tree_depth].index]}
+                # child_node = deepcopy(node)
+                # child_node['indices'].append(items_sorted[tree_depth].index)
+                # child_node['taken'].append(x)
                 child_node = calculate_node(items_sorted,
                                             items_sorted_by_density,
                                             child_node,
@@ -127,11 +140,11 @@ def DFS_iterative(items, item_count, capacity):
             debug_print(node, result, best_solution)
 
         end_timer = time.time()
-        # if end_timer - start_timer > 10:
-        #     print(f'still running, elapsed time: {end_timer - start:.2f}'
-        #           f', nodes visited: {nodes_visited}', flush=True)
-        #     # input('press any button to continue...')
-        #     start_timer = time.time()
+        if end_timer - start_timer > 10:
+            print(f'still running, elapsed time: {end_timer - start:.2f}'
+                  f', nodes visited: {nodes_visited}', flush=True)
+            # input('press any button to continue...')
+            start_timer = time.time()
         if end_timer - start > 60:
             print(f'stopped after 60 s')
             break
@@ -151,6 +164,10 @@ def DFS_iterative(items, item_count, capacity):
           f'nodes visited: {nodes_visited:10d}, '
           f'nodes in tree: {nodes:.2E}, '
           f'visited: {100*nodes_visited/nodes:.2E} %\n')
+
+    profile.disable()
+    ps = pstats.Stats(profile)
+    ps.print_stats()
     return output_data
 
 
@@ -186,27 +203,28 @@ def debug_print(node, result, best_solution):
               + ' | estimate = ' + str(node['estimate'])
               + ' | best_solution = '
               + str(best_solution)
-              + ' ---> BRANCH')
+              + ' ---> BRANCH\n')
     elif result == 'bound':
         print('value = ' + str(node['value'])
               + ' | room = ' + str(node['room'])
               + ' | estimate = ' + str(node['estimate'])
               + ' | best_solution = '
               + str(best_solution)
-              + ' ---> BOUND')
+              + ' ---> BOUND\n')
     elif result == 'solution':
         print('value = ' + str(node['value'])
               + ' | room = ' + str(node['room'])
               + ' | estimate = ' + str(node['estimate'])
               + ' | best_solution = ' + str(best_solution)
               + ' ---> SOLUTION = '
-              + str(node['value']))
+              + str(node['value'])
+              + '\n')
     elif result == 'infeasible':
         print('value = ' + '---'
               + ' | room = ' + str(node['room'])
               + ' | estimate = ' + '---'
               + ' | best_solution = ' + str(best_solution)
-              + ' ---> INFEASIBLE')
+              + ' ---> INFEASIBLE\n')
 
 
 # def density_sort(items, item_count, capacity):

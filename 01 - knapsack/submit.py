@@ -225,6 +225,7 @@ def output(input_file, solver_file):
 
     start = process_time()
     try:
+        print(input_file)
         solution = pkg.solve_it(load_input_data(input_file))
     except Exception as e:
         print('the solve_it(input_data) method from '
@@ -243,7 +244,7 @@ def output(input_file, solver_file):
         solution = str(solution)
 
     print('Submitting: ')
-    print(solution)
+    print(solution, flush=True)
 
     return solution.strip() + '\n' + str(end - start)
 

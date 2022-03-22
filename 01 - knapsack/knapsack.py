@@ -52,20 +52,22 @@ def dynamic_programing(items, item_count, capacity):
     return output_data
 
 
-def linear_relaxation(items_sorted, indices, value, room):
+def linear_relaxation(items, indices, value, room):
     estimate = value
     density = 0
-    for item in items_sorted:
-        if item.index not in indices:
-            if item.weight <= room:
-                estimate += item.value
-                room -= item.weight
-                density = item.density
-            else:
-                estimate += room / item.weight * item.value
-                room = 0  # -= room / item.weight * item.weight
-                density = item.density
-                break
+    for i in range(len(indices), len(items)):
+        item = items[i]
+    # for item in items:
+        # if item.index not in indices:
+        if item.weight <= room:
+            estimate += item.value
+            room -= item.weight
+            density = item.density
+        else:
+            estimate += room / item.weight * item.value
+            room = 0  # -= room / item.weight * item.weight
+            density = item.density
+            break
     return estimate, density
 
 
@@ -77,26 +79,25 @@ def DFS_iterative(items, item_count, capacity):
     debug = False
     start = time.time()
     start_timer = start
-    profile = cProfile.Profile()
-    profile.enable()
+
+    # profile = cProfile.Profile()
+    # profile.enable()
 
     # SORT ITEMS
-    items_sorted_by_density = sorted(items, key=lambda x: x.weight)
-    items_sorted_by_density = sorted(items_sorted_by_density,
-                                     key=lambda x: x.density, reverse=True)
-    items_sorted = items_sorted_by_density
+    items = sorted(items, key=lambda x: x.weight)
+    items = sorted(items, key=lambda x: x.density, reverse=True)
     # print('Items sorted by density', flush=True)
     if debug:
-        pprint(items_sorted)
+        pprint(items)
 
     # LINEAR RELAXATION
-    estimate, c_density = linear_relaxation(items_sorted_by_density, [], 0,
+    estimate, c_density = linear_relaxation(items, [], 0,
                                             capacity)
     # print('Linear Relaxation', flush=True)
     # print(f'estimate: {estimate}, critical density: {c_density}', flush=True)
 
     # PREPARATION
-    # stack = deque()
+    stack = deque()
     stack = []
     best_solution = 0
     best_taken = []
@@ -114,7 +115,7 @@ def DFS_iterative(items, item_count, capacity):
 
         if result == 'branch':
             X = [0, 1]
-            # if items_sorted[tree_depth].density <= c_density:
+            # if items[tree_depth].density <= c_density:
             #     X = [1, 0]
             for x in X:
                 child_node = {'value': node['value'],
@@ -122,12 +123,8 @@ def DFS_iterative(items, item_count, capacity):
                               'estimate': node['estimate'],
                               'taken': node['taken'] + [x],
                               'indices': node['indices']
-                              + [items_sorted[tree_depth].index]}
-                # child_node = deepcopy(node)
-                # child_node['indices'].append(items_sorted[tree_depth].index)
-                # child_node['taken'].append(x)
-                child_node = calculate_node(items_sorted,
-                                            items_sorted_by_density,
+                              + [items[tree_depth].index]}
+                child_node = calculate_node(items,
                                             child_node,
                                             tree_depth)
                 stack.append(child_node)
@@ -145,36 +142,32 @@ def DFS_iterative(items, item_count, capacity):
                   f', nodes visited: {nodes_visited}', flush=True)
             # input('press any button to continue...')
             start_timer = time.time()
-        if end_timer - start > 60:
-            print(f'stopped after 60 s')
+        if end_timer - start > 5 * 60:
+            print(f'stopped after 5 min')
             break
 
     # SORT TAKEN AND OUTPUT
     taken = np.zeros((item_count,), dtype=int)
-    for idx, item in enumerate(items_sorted):
+    for idx, item in enumerate(items):
         taken[item.index] = best_taken[idx]
     output_data = str(best_solution) + ' ' + str(0) + '\n'
     output_data += ' '.join(map(str, taken))
 
-    end = time.time()
-    nodes = 0
-    for i in range(item_count + 1):
-        nodes += 2**i
-    print(f'elapsed time: {end - start:10.4f} s, '
-          f'nodes visited: {nodes_visited:10d}, '
-          f'nodes in tree: {nodes:.2E}, '
-          f'visited: {100*nodes_visited/nodes:.2E} %\n')
+    # profile.disable()
+    # ps = pstats.Stats(profile)
+    # ps.print_stats()
 
-    profile.disable()
-    ps = pstats.Stats(profile)
-    ps.print_stats()
+    end = time.time()
+    print(f'value: {best_solution:10d}, '
+          f'elapsed time: {end - start:10.4f} s, '
+          f'nodes visited: {nodes_visited:10d}\n', flush=True)
     return output_data
 
 
-def calculate_node(items, items_sorted_by_density, node, tree_depth):
+def calculate_node(items, node, tree_depth):
     node['room'] -= (node['taken'][tree_depth] * items[tree_depth].weight)
     node['value'] += (node['taken'][tree_depth] * items[tree_depth].value)
-    node['estimate'] = linear_relaxation(items_sorted_by_density,
+    node['estimate'] = linear_relaxation(items,
                                          node['indices'],
                                          node['value'],
                                          node['room'])[0]

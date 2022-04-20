@@ -32,39 +32,36 @@ def main(puzzle):
 
 
 def pruning(node):
-    size = len(node['rows'])
+    size = len(node['array'])
     loop2 = True
     while loop2:
         loop2 = False
-        for i in range(size):  # row / column / box
-            for j in range(size):  # cell
-                # ROWS
-                if isinstance(node['rows'][i]['values'][j], int):
-                    for k in range(size):  # cell
-                        if isinstance(node['rows'][i]['values'][k], set):
-                            node['rows'][i]['values'][k].remove(node['rows'][i]['values'][j])
-                if isinstance(node['rows'][i]['cells'][j], int):
-                    for k in range(size):  # cell
-                        if isinstance(node['rows'][i]['cells'][k], set):
-                            node['rows'][i]['cells'][k].remove(node['rows'][i]['cells'][j])
-                # COLUMNS
-                if isinstance(node['columns'][i]['values'][j], int):
-                    for k in range(size):  # cell
-                        if isinstance(node['columns'][i]['values'][k], set):
-                            node['columns'][i]['values'][k].remove(node['columns'][i]['values'][j])
-                if isinstance(node['columns'][i]['cells'][j], int):
-                    for k in range(size):  # cell
-                        if isinstance(node['columns'][i]['cells'][k], set):
-                            node['columns'][i]['cells'][k].remove(node['columns'][i]['cells'][j])
-                # BOXES
-                if isinstance(node['boxes'][i]['values'][j], int):
-                    for k in range(size):  # cell
-                        if isinstance(node['boxes'][i]['values'][k], set):
-                            node['boxes'][i]['values'][k].remove(node['boxes'][i]['values'][j])
-                if isinstance(node['boxes'][i]['cells'][j], int):
-                    for k in range(size):  # cell
-                        if isinstance(node['boxes'][i]['cells'][k], set):
-                            node['boxes'][i]['cells'][k].remove(node['boxes'][i]['cells'][j])
+        for i in range(size):  # rows
+            for j in range(size):  # columns
+                if isinstance(node['array'][i][j], int):
+                    # ROW
+                    for k in range(size):  # columns
+                        if isinstance(node['array'][i][k], set):
+                            node['array'][i][k].remove(node['array'][i][j])
+                    # COLUMN
+                    for k in range(size): # rows
+                        if isinstance(node['array'][k][j], set):
+                            node['array'][k][j].remove(node['array'][i][j])
+                    # BOX
+                    for k in range(size): # box cell indices
+                        
+
+
+
+
+                # if isinstance(node['rows'][i]['cells'][j], int):
+                #     for k in range(size):  # cell
+                #         if isinstance(node['rows'][i]['cells'][k], set):
+                #             node['rows'][i]['cells'][k].remove(node['rows'][i]['cells'][j])
+                # if isinstance(node['rows'][i]['values'][j], int):
+                #     for k in range(size):  # cell
+                #         if isinstance(node['rows'][i]['values'][k], set):
+                #             node['rows'][i]['values'][k].remove(node['rows'][i]['values'][j])
 
         # remove values from cells ("values") if value already in row, column or box
         # remove cells from values ("cells") if cell is filled
@@ -90,50 +87,30 @@ def create_dict(puzzle):
 
     size = int(len(puzzle) ** 0.5)
 
-    sdk = {"puzzle": puzzle.replace("\n", ""),
+    sdk = {"puzzle": puzzle,
            "solution": "",
-           "rows": [],
-           "columns": [],
-           "boxes": []}
+           "array": []}
 
     # initiate dict as if puzzle was empty
-    for i in range(size):  # iterate over rows, columns, and boxes
-        row = {"values": [],  # values that a cell can be
-               "cells": []}  # cells that a value can be in
-        column = {"values": [],
-                  "cells": []}
-        box = {"values": [],
-               "cells": []}
-        for j in range(size):  # iterate over cells, and values
-            row["values"].append(set(range(1, size + 1)))
-            row["cells"].append(set(range(0, size)))
-            column["values"].append(set(range(1, size + 1)))
-            column["cells"].append(set(range(0, size)))
-            box["values"].append(set(range(1, size + 1)))
-            box["cells"].append(set(range(0, size)))
-        sdk["rows"].append(row)
-        sdk["columns"].append(column)
-        sdk["boxes"].append(box)
+    for i in range(size):  # iterate over rows
+        row = []
+        # row = {'cells': [],
+        #        'values': []}
+        for j in range(size):  # iterate over cells
+            row.append(set(range(1, size + 1)))
+            # row['cells'].append(set(range(1, size + 1)))
+            # row['values'].append(set(range(0, size)))
+        sdk["array"].append(row)
 
     # fill inn given values from puzzle
     for i in range(size ** 2):
         value = int(sdk["puzzle"][i])
         row_idx = int(i / size)
         row_cell_idx = i % size
-        column_idx = i % size
-        column_cell_idx = int(i / size)
-        box_idx = (int(i / (size ** 0.5)) % int(size ** 0.5)
-                   + int(size ** 0.5) * int(i / (size ** 1.5)))
-        box_cell_idx = (i - int(size ** 0.5) * box_idx
-                        - (int(size ** 0.5) * (int(size ** 0.5) - 1))
-                        * row_idx)
         if value != 0:
-            sdk["rows"][row_idx]["values"][row_cell_idx] = value
-            sdk["rows"][row_idx]["cells"][value - 1] = row_cell_idx
-            sdk["columns"][column_idx]["values"][column_cell_idx] = value
-            sdk["columns"][column_idx]["cells"][value - 1] = column_cell_idx
-            sdk["boxes"][box_idx]["values"][box_cell_idx] = value
-            sdk["boxes"][box_idx]["cells"][value - 1] = box_cell_idx
+            sdk["array"][row_idx][row_cell_idx] = value
+            # sdk["rows"][row_idx]['cells'][row_cell_idx] = value
+            # sdk["rows"][row_idx]['values'][value - 1] = row_cell_idx
 
     return sdk
 

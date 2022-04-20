@@ -1,12 +1,14 @@
-puzzle = """070000043
-            040009610
-            800634900
-            094052000
-            358460020
-            000800530
-            080070091
-            902100005
-            007040802"""
+puzzle = """070 000 043
+            040 009 610
+            800 634 900
+
+            094 052 000
+            358 460 020
+            000 800 530
+
+            080 070 091
+            902 100 005
+            007 040 802"""
 
 
 def main(puzzle):
@@ -30,9 +32,40 @@ def main(puzzle):
 
 
 def pruning(node):
+    size = len(node['rows'])
     loop2 = True
     while loop2:
         loop2 = False
+        for i in range(size):  # row / column / box
+            for j in range(size):  # cell
+                # ROWS
+                if isinstance(node['rows'][i]['values'][j], int):
+                    for k in range(size):  # cell
+                        if isinstance(node['rows'][i]['values'][k], set):
+                            node['rows'][i]['values'][k].remove(node['rows'][i]['values'][j])
+                if isinstance(node['rows'][i]['cells'][j], int):
+                    for k in range(size):  # cell
+                        if isinstance(node['rows'][i]['cells'][k], set):
+                            node['rows'][i]['cells'][k].remove(node['rows'][i]['cells'][j])
+                # COLUMNS
+                if isinstance(node['columns'][i]['values'][j], int):
+                    for k in range(size):  # cell
+                        if isinstance(node['columns'][i]['values'][k], set):
+                            node['columns'][i]['values'][k].remove(node['columns'][i]['values'][j])
+                if isinstance(node['columns'][i]['cells'][j], int):
+                    for k in range(size):  # cell
+                        if isinstance(node['columns'][i]['cells'][k], set):
+                            node['columns'][i]['cells'][k].remove(node['columns'][i]['cells'][j])
+                # BOXES
+                if isinstance(node['boxes'][i]['values'][j], int):
+                    for k in range(size):  # cell
+                        if isinstance(node['boxes'][i]['values'][k], set):
+                            node['boxes'][i]['values'][k].remove(node['boxes'][i]['values'][j])
+                if isinstance(node['boxes'][i]['cells'][j], int):
+                    for k in range(size):  # cell
+                        if isinstance(node['boxes'][i]['cells'][k], set):
+                            node['boxes'][i]['cells'][k].remove(node['boxes'][i]['cells'][j])
+
         # remove values from cells ("values") if value already in row, column or box
         # remove cells from values ("cells") if cell is filled
         # if any len(list) == 1:
@@ -52,6 +85,9 @@ def pruning(node):
 
 
 def create_dict(puzzle):
+    for ch in ["\n", " "]:
+        puzzle = puzzle.replace(ch, "")
+
     size = int(len(puzzle) ** 0.5)
 
     sdk = {"puzzle": puzzle.replace("\n", ""),
@@ -69,12 +105,12 @@ def create_dict(puzzle):
         box = {"values": [],
                "cells": []}
         for j in range(size):  # iterate over cells, and values
-            row["values"].append(list(range(1, size + 1)))
-            row["cells"].append(list(range(1, size + 1)))
-            column["values"].append(list(range(1, size + 1)))
-            column["cells"].append(list(range(1, size + 1)))
-            box["values"].append(list(range(1, size + 1)))
-            box["cells"].append(list(range(1, size + 1)))
+            row["values"].append(set(range(1, size + 1)))
+            row["cells"].append(set(range(0, size)))
+            column["values"].append(set(range(1, size + 1)))
+            column["cells"].append(set(range(0, size)))
+            box["values"].append(set(range(1, size + 1)))
+            box["cells"].append(set(range(0, size)))
         sdk["rows"].append(row)
         sdk["columns"].append(column)
         sdk["boxes"].append(box)
@@ -103,7 +139,5 @@ def create_dict(puzzle):
 
 
 if __name__ == '__main__':
-    for ch in ["\n", " "]:
-        puzzle = puzzle.replace(ch, "")
     f, node = main(puzzle)
     print(node["solution"])

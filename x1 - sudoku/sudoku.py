@@ -12,73 +12,285 @@ puzzle = """070 000 043
 
 
 def main(puzzle):
+    # print('Create node')
     node = create_dict(puzzle)
+    # print(node['cells'])
+
+    # print('Print puzzle')
+    print_puzzle(node['puzzle'])
+
     stack = [node]
 
     nodes_visited = 0
     while stack:
         node = stack.pop()
         nodes_visited += 1
-    #   f, node = pruning(node)
-    #   if f
-    #       child_nodes = choose(node)
-    #       if child_nodes
-    #           stack.append(child_nodes)
-    #       else
-    #           node = compile_solution(node)
-    #           return True, node
 
+        # print('Prune search space, by appling constraints.')
+        valid, node = pruning(node)
+        # print(valid)
+        # print(node['cells'])
+
+        if valid:
+            # child_nodes = choose(node)
+            # if child_nodes
+            #     stack.append(child_nodes)
+            # else
+            # print('Check if all cells are filled, and by the rules.')
+            valid = check_solution(node)
+            # print(valid)
+
+            if valid:
+                string = compile_string(node['cells'])
+                node['solution'] = string
+                print('THE SOLUTION!')
+                print_puzzle(node['solution'])
+                return valid, node
     return False, node
 
 
 def pruning(node):
-    size = len(node['array'])
-    loop2 = True
-    while loop2:
-        loop2 = False
+    size = len(node['cells'])
+    found = True
+    while found:
+        found = False
+
+        # APPLY SUDOKU RULES
         for i in range(size):  # rows
             for j in range(size):  # columns
-                if isinstance(node['array'][i][j], int):
+                if isinstance(node['cells'][i][j], int):
                     # ROW
                     for k in range(size):  # columns
-                        if isinstance(node['array'][i][k], set):
-                            node['array'][i][k].remove(node['array'][i][j])
+                        if isinstance(node['cells'][i][k], set):
+                            node['cells'][i][k].discard(node['cells'][i][j])
+                            if len(node['cells'][i][k]) == 0:
+                                return False, node
                     # COLUMN
-                    for k in range(size): # rows
-                        if isinstance(node['array'][k][j], set):
-                            node['array'][k][j].remove(node['array'][i][j])
+                    for k in range(size):  # rows
+                        if isinstance(node['cells'][k][j], set):
+                            node['cells'][k][j].discard(node['cells'][i][j])
+                            if len(node['cells'][k][j]) == 0:
+                                return False, node
                     # BOX
-                    for k in range(size): # box cell indices
-                        
+                    r0 = int(size ** 0.5 * int(i / (size ** 0.5)))
+                    c0 = int(size ** 0.5 * int(j / (size ** 0.5)))
+                    for r in range(r0, r0 + int(size ** 0.5)):
+                        for c in range(c0, c0 + int(size ** 0.5)):
+                            if isinstance(node['cells'][r][c], set):
+                                node['cells'][r][c].discard(node['cells'][i][j])
+                                if len(node['cells'][r][c]) == 0:
+                                    return False, node
+
+        # found, node = hidden_singles(node)
+        # HIDDEN SINGLES IN BOXES
+        for n in range(1, size + 1):  # numbers
+            if found is True:
+                break
+            for i in range(size):  # boxes
+                ids = []
+
+                r0 = int(size ** 0.5 * int(i / (size ** 0.5)))
+                c0 = int(size ** 0.5 * int(i % (size ** 0.5)))
+                for r in range(r0, r0 + int(size ** 0.5)):
+                    for c in range(c0, c0 + int(size ** 0.5)):
+                        if isinstance(node['cells'][r][c], set):
+                            if n in node['cells'][r][c]:
+                                ids.append((r, c))
+                if len(ids) == 1:
+                    node['cells'][ids[0][0]][ids[0][1]] = n
+                    print('HIDDEN SINGEL IN A BOX!')
+                    print('Row ', ids[0][0], ' column ', ids[0][1], ' is ', n)
+                    string = compile_string(node['cells'])
+                    print_puzzle(string)
+                    found = True
+                    break
+        if found is True:
+            continue
+
+        # HIDDEN SINGLES IN ROWS
+        for n in range(1, size + 1):  # numbers
+            if found is True:
+                break
+            for i in range(size):  # rows
+                ids = []
+                for j in range(size):  # columns
+                    if isinstance(node['cells'][i][j], set):
+                        if n in node['cells'][i][j]:
+                            ids.append(j)
+                if len(ids) == 1:
+                    node['cells'][i][ids[0]] = n
+                    print('HIDDEN SINGEL IN A ROW!')
+                    print('Row ', i, ' column ', ids[0], ' is ', n)
+                    string = compile_string(node['cells'])
+                    print_puzzle(string)
+                    found = True
+                    break
+        if found is True:
+            continue
+
+        # HIDDEN SINGLES IN COLUMNS
+        for n in range(1, size + 1):  # numbers
+            if found is True:
+                break
+            for i in range(size):  # columns
+                ids = []
+                for j in range(size):  # rows
+                    if isinstance(node['cells'][j][i], set):
+                        if n in node['cells'][j][i]:
+                            ids.append(j)
+                if len(ids) == 1:
+                    node['cells'][ids[0]][i] = n
+                    print('HIDDEN SINGEL IN A COLUMN!')
+                    print('Row ', ids[0], ' column ', i, ' is ', n)
+                    string = compile_string(node['cells'])
+                    print_puzzle(string)
+                    found = True
+                    break
+        if found is True:
+            continue
+
+        # NAKED SINGLES
+        # found, node = naked_singles(node)
+        for i in range(size):  # rows
+            if found is True:
+                break
+            for j in range(size):  # columns
+                if isinstance(node['cells'][i][j], set) and len(node['cells'][i][j]) == 1:
+                    node['cells'][i][j] = node['cells'][i][j].pop()
+                    print('NAKED SINGEL!')
+                    print('Row ', i, ' column ', j, ' is ', node['cells'][i][j])
+                    string = compile_string(node['cells'])
+                    print_puzzle(string)
+                    found = True
+                    break
+        if found is True:
+            continue
+
+    return True, node
+
+
+def naked_singles(node):
+    size = len(node['cells'])
+    for i in range(size):  # rows
+        for j in range(size):  # columns
+            if isinstance(node['cells'][i][j], set) and len(node['cells'][i][j]) == 1:
+                node['cells'][i][j] = node['cells'][i][j].pop()
+                print('NAKED SINGEL!')
+                print('Row ', i, ' column ', j, ' is ', node['cells'][i][j])
+                string = compile_string(node['cells'])
+                print_puzzle(string)
+                return True, node
+    return False, node
+
+
+def hidden_singles(node):
+    size = len(node['cells'])
+    for n in range(1, size + 1):  # numbers
+        # BOXES
+        for i in range(size):
+            ids = []
+            r0 = int(size ** 0.5 * int(i / (size ** 0.5)))
+            c0 = int(size ** 0.5 * int(i % (size ** 0.5)))
+            for r in range(r0, r0 + int(size ** 0.5)):
+                for c in range(c0, c0 + int(size ** 0.5)):
+                    if isinstance(node['cells'][r][c], set):
+                        if n in node['cells'][r][c]:
+                            ids.append((r, c))
+            if len(ids) == 1:
+                node['cells'][ids[0][0]][ids[0][1]] = n
+                print('HIDDEN SINGEL IN A BOX!')
+                print('Row ', ids[0][0], ' column ', ids[0][1], ' is ', n)
+                string = compile_string(node['cells'])
+                print_puzzle(string)
+                return True, node
+
+        # ROWS
+        for i in range(size):  # rows
+            ids = []
+            for j in range(size):  # columns
+                if isinstance(node['cells'][i][j], set):
+                    if n in node['cells'][i][j]:
+                        ids.append(j)
+            if len(ids) == 1:
+                node['cells'][i][ids[0]] = n
+                print('HIDDEN SINGEL IN A ROW!')
+                print('Row ', i, ' column ', ids[0], ' is ', n)
+                string = compile_string(node['cells'])
+                print_puzzle(string)
+                return True, node
+
+        # COLUMNS
+        for i in range(size):  # columns
+            ids = []
+            for j in range(size):  # rows
+                if isinstance(node['cells'][j][i], set):
+                    if n in node['cells'][j][i]:
+                        ids.append(j)
+            if len(ids) == 1:
+                node['cells'][ids[0]][i] = n
+                print('HIDDEN SINGEL IN A COLUMN!')
+                print('Row ', ids[0], ' column ', i, ' is ', n)
+                string = compile_string(node['cells'])
+                print_puzzle(string)
+                return True, node
 
 
 
 
-                # if isinstance(node['rows'][i]['cells'][j], int):
-                #     for k in range(size):  # cell
-                #         if isinstance(node['rows'][i]['cells'][k], set):
-                #             node['rows'][i]['cells'][k].remove(node['rows'][i]['cells'][j])
-                # if isinstance(node['rows'][i]['values'][j], int):
-                #     for k in range(size):  # cell
-                #         if isinstance(node['rows'][i]['values'][k], set):
-                #             node['rows'][i]['values'][k].remove(node['rows'][i]['values'][j])
+def compile_string(cells):
+    string = ''
+    for i, row in enumerate(cells):
+        for j, cell_value in enumerate(row):
+            if isinstance(cell_value, set):
+                string += str(0)
+            else:
+                string += str(cell_value)
+    return string
 
-        # remove values from cells ("values") if value already in row, column or box
-        # remove cells from values ("cells") if cell is filled
-        # if any len(list) == 1:
-        #   change to int (filling in hidden or naked single)
-        #   loop2 = True
-        #   continue
-        # elif any len(list) == 0:
-        #   return -1, node
 
-        # check locked candidate
-        # if pruned
-        #   loop2 = True
-        #   continue
+def print_puzzle(puzzle):
+    size = len(puzzle) ** 0.5
+    puzzle = puzzle.replace('0', ' ')
+    string = ''
+    for i, ch in enumerate(puzzle):
+        if i % size == 0 and i != 0:
+            string += '\n'
+            if i % size ** 1.5 == 0:
+                string += '---+---+---\n'
+        elif i % size ** 0.5 == 0 and i != 0:
+            string += '|'
+        string += str(ch)
+    string += '\n\n'
+    print(string, flush=True)
 
-        # check
-    return 0, node
+
+def check_solution(node):
+    size = len(node['cells'])
+    for i in range(size):
+        row_ids = set()
+        col_ids = set()
+        box_ids = set()
+        for j in range(size):
+            # ROWS
+            if not isinstance(node['cells'][i][j], int):
+                return False
+            row_ids.add(node['cells'][i][j])
+
+            # COLUMNS
+            if not isinstance(node['cells'][j][i], int):
+                return False
+            col_ids.add(node['cells'][j][i])
+
+            # BOXES
+            r = int(j / (size ** 0.5)) + int(size ** 0.5 * int(i / (size ** 0.5)))
+            c = int(j % (size ** 0.5)) + int(size ** 0.5 * int(i % (size ** 0.5)))
+            if not isinstance(node['cells'][r][c], int):
+                return False
+            box_ids.add(node['cells'][r][c])
+
+        if len(row_ids) != 9 or len(col_ids) != 9 or len(box_ids) != 9:
+            return False
+    return True
 
 
 def create_dict(puzzle):
@@ -87,34 +299,27 @@ def create_dict(puzzle):
 
     size = int(len(puzzle) ** 0.5)
 
-    sdk = {"puzzle": puzzle,
-           "solution": "",
-           "array": []}
+    node = {"puzzle": puzzle,
+            "solution": "",
+            "cells": []}
 
     # initiate dict as if puzzle was empty
     for i in range(size):  # iterate over rows
         row = []
-        # row = {'cells': [],
-        #        'values': []}
         for j in range(size):  # iterate over cells
             row.append(set(range(1, size + 1)))
-            # row['cells'].append(set(range(1, size + 1)))
-            # row['values'].append(set(range(0, size)))
-        sdk["array"].append(row)
+        node["cells"].append(row)
 
     # fill inn given values from puzzle
     for i in range(size ** 2):
-        value = int(sdk["puzzle"][i])
+        value = int(node["puzzle"][i])
         row_idx = int(i / size)
         row_cell_idx = i % size
         if value != 0:
-            sdk["array"][row_idx][row_cell_idx] = value
-            # sdk["rows"][row_idx]['cells'][row_cell_idx] = value
-            # sdk["rows"][row_idx]['values'][value - 1] = row_cell_idx
+            node["cells"][row_idx][row_cell_idx] = value
 
-    return sdk
+    return node
 
 
 if __name__ == '__main__':
     f, node = main(puzzle)
-    print(node["solution"])

@@ -1,3 +1,5 @@
+import copy
+
 puzzle = """070 000 043
             040 009 610
             800 634 900
@@ -19,11 +21,21 @@ def main(puzzle):
     while stack:
         node = stack.pop()
         nodes_visited += 1
+        if 'guess' in node:
+            print('########################################')
+            print('Guessing row ', node['guess'][0], ' column ', node['guess'][1], ' is ', node['guess'][2])
+            # print('########################################')
+            # print('########################################')
+            # print('########################################')
+        #     string = compile_string(node['cells'])
+        #     print_puzzle(string)
         valid, node = pruning(node)
         if valid:
-            child_nodes = []
+            child_nodes = choose_children(node)
+            # child_nodes = []
             if child_nodes:
-                stack.append(child_nodes)
+                for child in child_nodes:
+                    stack.append(child)
             else:
                 valid = check_solution(node)
                 if valid:
@@ -33,9 +45,25 @@ def main(puzzle):
                     print('Nodes visited: ', nodes_visited)
                     print_puzzle(node['solution'])
                     return valid, node
+        else:
+            print('________________________________________')
+            print('Not valid!')
     print('No solution found! :(')
     print('More advanced techniques needed.')
     return False, node
+
+
+def choose_children(node):
+    child_nodes = []
+    for i, row in enumerate(node['cells']):
+        for j, cell in enumerate(row):
+            if isinstance(cell, set):
+                for value in cell:
+                    child = copy.deepcopy(node)
+                    child['cells'][i][j] = value
+                    child['guess'] = (i, j, value)
+                    child_nodes.append(child)
+    return child_nodes
 
 
 def pruning(node):

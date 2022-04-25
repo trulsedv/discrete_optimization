@@ -1,18 +1,3 @@
-import copy
-
-puzzle = """070 000 043
-            040 009 610
-            800 634 900
-
-            094 052 000
-            358 460 020
-            000 800 530
-
-            080 070 091
-            902 100 005
-            007 040 802"""
-
-
 def main(puzzle):
     node = create_dict(puzzle)
     print_puzzle(node['puzzle'])
@@ -21,7 +6,7 @@ def main(puzzle):
     while stack:
         node = stack.pop()
         nodes_visited += 1
-        if 'guess' in node:
+        if node['guess']:
             print('\n__________________________________________________')
             print('Guessing row ', node['guess'][0] + 1, ' column ', node['guess'][1] + 1, ' is ', node['guess'][2])
             string = compile_string(node['cells'])
@@ -330,12 +315,22 @@ def choose_children(node):
         for j, cell in enumerate(row):
             if isinstance(cell, set):
                 for value in cell:
-                    child = copy.deepcopy(node)
+                    child = deepcopy_node(node)
                     child['cells'][i][j] = value
                     child['guess'] = (i, j, value)
                     child_nodes.append(child)
                 return child_nodes
     return child_nodes
+
+
+def deepcopy_node(node):
+    deepcopy = {'puzzle': node['puzzle'],
+                'solution': node['solution'],
+                'cells': [],
+                'guess': node['guess']}
+    for row in node['cells']:
+        deepcopy['cells'].append(row.copy())
+    return deepcopy
 
 
 def compile_string(cells):
@@ -373,7 +368,8 @@ def create_dict(puzzle):
 
     node = {"puzzle": puzzle,
             "solution": "",
-            "cells": []}
+            "cells": [],
+            'guess': ''}
 
     # initiate dict as if puzzle was empty
     for i in range(size):  # iterate over rows
@@ -392,6 +388,18 @@ def create_dict(puzzle):
 
     return node
 
+
+puzzle = """070 000 043
+            040 009 610
+            800 634 900
+
+            094 052 000
+            358 460 020
+            000 800 530
+
+            080 070 091
+            902 100 005
+            007 040 802"""
 
 if __name__ == '__main__':
     valid, node = main(puzzle)

@@ -22,19 +22,20 @@ def main(puzzle):
         node = stack.pop()
         nodes_visited += 1
         if 'guess' in node:
-            print('########################################')
-            print('Guessing row ', node['guess'][0], ' column ', node['guess'][1], ' is ', node['guess'][2])
-            # print('########################################')
-            # print('########################################')
-            # print('########################################')
-        #     string = compile_string(node['cells'])
-        #     print_puzzle(string)
+            print('\n__________________________________________________')
+            print('Guessing row ', node['guess'][0] + 1, ' column ', node['guess'][1] + 1, ' is ', node['guess'][2])
+            string = compile_string(node['cells'])
+            print_puzzle(string)
         valid, node = pruning(node)
         if valid:
             child_nodes = choose_children(node)
             # child_nodes = []
             if child_nodes:
+                print('\n==================================================')
+                print('The following guesses are added to the stack:')
+                # child_nodes.reverse()
                 for child in child_nodes:
+                    print(child['guess'])
                     stack.append(child)
             else:
                 valid = check_solution(node)
@@ -46,24 +47,11 @@ def main(puzzle):
                     print_puzzle(node['solution'])
                     return valid, node
         else:
-            print('________________________________________')
             print('Not valid!')
+            print('¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤¤')
     print('No solution found! :(')
     print('More advanced techniques needed.')
     return False, node
-
-
-def choose_children(node):
-    child_nodes = []
-    for i, row in enumerate(node['cells']):
-        for j, cell in enumerate(row):
-            if isinstance(cell, set):
-                for value in cell:
-                    child = copy.deepcopy(node)
-                    child['cells'][i][j] = value
-                    child['guess'] = (i, j, value)
-                    child_nodes.append(child)
-    return child_nodes
 
 
 def pruning(node):
@@ -75,11 +63,19 @@ def pruning(node):
         if valid is False:
             return False, node
 
+        found, node = hidden_singles(node)
+        if found is True:
+            continue
+
         found, node = naked_singles(node)
         if found is True:
             continue
 
-        found, node = hidden_singles(node)
+        found, node = pointing_tuple(node)
+        if found is True:
+            continue
+
+        found, node = locked_candidate(node)
         if found is True:
             continue
     return True, node
@@ -95,12 +91,14 @@ def apply_rules(node):
                     if isinstance(node['cells'][i][k], set):
                         node['cells'][i][k].discard(node['cells'][i][j])
                         if len(node['cells'][i][k]) == 0:
+                            print('Row ', i + 1, ' column ', k + 1, ' has no possible values!')
                             return False, node
                 # COLUMN
                 for k in range(size):  # rows
                     if isinstance(node['cells'][k][j], set):
                         node['cells'][k][j].discard(node['cells'][i][j])
                         if len(node['cells'][k][j]) == 0:
+                            print('Row ', k + 1, ' column ', j + 1, ' has no possible values!')
                             return False, node
                 # BOX
                 r0 = int(size ** 0.5 * int(i / (size ** 0.5)))
@@ -110,6 +108,7 @@ def apply_rules(node):
                         if isinstance(node['cells'][r][c], set):
                             node['cells'][r][c].discard(node['cells'][i][j])
                             if len(node['cells'][r][c]) == 0:
+                                print('Row ', r + 1, ' column ', c + 1, ' has no possible values!')
                                 return False, node
     return True, node
 
@@ -120,8 +119,8 @@ def naked_singles(node):
         for j in range(size):  # columns
             if isinstance(node['cells'][i][j], set) and len(node['cells'][i][j]) == 1:
                 node['cells'][i][j] = node['cells'][i][j].pop()
-                print('NAKED SINGLE!')
-                print('Row ', i, ' column ', j, ' is ', node['cells'][i][j])
+                print('\nNAKED SINGLE!')
+                print('Row ', i + 1, ' column ', j + 1, ' is ', node['cells'][i][j])
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
@@ -130,7 +129,7 @@ def naked_singles(node):
 
 def hidden_singles(node):
     size = len(node['cells'])
-    for n in range(1, size + 1):  # numbers
+    for n in range(1, size + 1):  # values
         # BOXES
         for i in range(size):
             ids = []
@@ -143,8 +142,8 @@ def hidden_singles(node):
                             ids.append((r, c))
             if len(ids) == 1:
                 node['cells'][ids[0][0]][ids[0][1]] = n
-                print('HIDDEN SINGLE IN A BOX!')
-                print('Row ', ids[0][0], ' column ', ids[0][1], ' is ', n)
+                print('\nHIDDEN SINGLE IN A BOX!')
+                print('In box ', i + 1, ' ', n, 'can only be in row ', ids[0][0] + 1, ' column ', ids[0][1] + 1)
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
@@ -158,8 +157,8 @@ def hidden_singles(node):
                         ids.append(j)
             if len(ids) == 1:
                 node['cells'][i][ids[0]] = n
-                print('HIDDEN SINGLE IN A ROW!')
-                print('Row ', i, ' column ', ids[0], ' is ', n)
+                print('\nHIDDEN SINGLE IN A ROW!')
+                print('In row ', i + 1, ' ', n, ' can only be in column ', ids[0] + 1)
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
@@ -173,39 +172,127 @@ def hidden_singles(node):
                         ids.append(j)
             if len(ids) == 1:
                 node['cells'][ids[0]][i] = n
-                print('HIDDEN SINGLE IN A COLUMN!')
-                print('Row ', ids[0], ' column ', i, ' is ', n)
+                print('\nHIDDEN SINGLE IN A COLUMN!')
+                print('In column ', i + 1, ' ', n, ' can only be in row ', ids[0] + 1)
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
     return False, node
 
 
-def compile_string(cells):
-    string = ''
-    for i, row in enumerate(cells):
-        for j, cell_value in enumerate(row):
-            if isinstance(cell_value, set):
-                string += str(0)
-            else:
-                string += str(cell_value)
-    return string
+def locked_candidate(node):
+    size = len(node['cells'])
+    for n in range(1, size + 1):  # values
+        # ROWS
+        for i in range(size):
+            check = set()
+            for j in range(size):  # cells
+                if isinstance(node['cells'][i][j], set):
+                    if n in node['cells'][i][j]:
+                        box = int(size ** 0.5 * int(i / size ** 0.5) + int(j / size ** 0.5))
+                        check.add(box)
+            if len(check) == 1:
+                box = check.pop()
+                r0 = int(size ** 0.5 * int(box / size ** 0.5))
+                c0 = int(size ** 0.5 * (box % size ** 0.5))
+                removed = False
+                for row in range(r0, r0 + int(size ** 0.5)):
+                    if row == i:
+                        continue
+                    for col in range(c0, c0 + int(size ** 0.5)):
+                        if isinstance(node['cells'][row][col], set):
+                            if n in node['cells'][row][col]:
+                                if removed is False:
+                                    removed = True
+                                    print('\nLOCKED CANDIDATE IN A ROW!')
+                                    print('Row ', i + 1, ' can only have ', n, ' in box ', box + 1)
+                                    print(n, ' is removed as a possibility from:')
+                                node['cells'][row][col].discard(n)
+                                print('Row ', row + 1, 'column ', col + 1)
+                if removed is True:
+                    return True, node
+        # COLUMNS
+        for i in range(size):
+            check = set()
+            for j in range(size):  # cells
+                if isinstance(node['cells'][j][i], set):
+                    if n in node['cells'][j][i]:
+                        box = int(size ** 0.5 * int(j / size ** 0.5) + int(i / size ** 0.5))
+                        check.add(box)
+            if len(check) == 1:
+                box = check.pop()
+                r0 = int(size ** 0.5 * int(box / size ** 0.5))
+                c0 = int(size ** 0.5 * (box % size ** 0.5))
+                removed = False
+                for col in range(c0, c0 + int(size ** 0.5)):
+                    if col == i:
+                        continue
+                    for row in range(r0, r0 + int(size ** 0.5)):
+                        if isinstance(node['cells'][row][col], set):
+                            if n in node['cells'][row][col]:
+                                if removed is False:
+                                    removed = True
+                                    print('\nLOCKED CANDIDATE IN A COLUMN!')
+                                    print('Column ', i + 1, ' can only have ', n, ' in box ', box + 1)
+                                    print(n, ' is removed as a possibility from:')
+                                node['cells'][row][col].discard(n)
+                                print('Row ', row + 1, 'column ', col + 1)
+                if removed is True:
+                    return True, node
+    return False, node
 
 
-def print_puzzle(puzzle):
-    size = len(puzzle) ** 0.5
-    puzzle = puzzle.replace('0', ' ')
-    string = ''
-    for i, ch in enumerate(puzzle):
-        if i % size == 0 and i != 0:
-            string += '\n'
-            if i % size ** 1.5 == 0:
-                string += '---+---+---\n'
-        elif i % size ** 0.5 == 0 and i != 0:
-            string += '|'
-        string += str(ch)
-    string += '\n\n'
-    print(string, flush=True)
+def pointing_tuple(node):
+    size = len(node['cells'])
+    for n in range(1, size + 1):  # values
+        for box in range(size):
+            r0 = int(size ** 0.5 * int(box / size ** 0.5))
+            c0 = int(size ** 0.5 * (box % size ** 0.5))
+            check_row = set()
+            check_col = set()
+            for row in range(r0, r0 + int(size ** 0.5)):
+                for col in range(c0, c0 + int(size ** 0.5)):
+                    if isinstance(node['cells'][row][col], set):
+                        if n in node['cells'][row][col]:
+                            check_row.add(row)
+                            check_col.add(col)
+            # ROWS
+            if len(check_row) == 1:
+                row = check_row.pop()
+                removed = False
+                for col in range(size):
+                    if col >= c0 and col < c0 + size ** 0.5:
+                        continue
+                    if isinstance(node['cells'][row][col], set):
+                        if n in node['cells'][row][col]:
+                            if removed is False:
+                                removed = True
+                                print('\nPOINTING TUPLE IN A ROW!')
+                                print('Box ', box + 1, ' can only have ', n, ' in row ', row + 1)
+                                print(n, ' is removed as a possibility from:')
+                            node['cells'][row][col].discard(n)
+                            print('Row ', row + 1, 'column ', col + 1)
+                if removed is True:
+                    return True, node
+            # COLUMNS
+            if len(check_col) == 1:
+                col = check_col.pop()
+                removed = False
+                for row in range(size):
+                    if row >= r0 and row < r0 + size ** 0.5:
+                        continue
+                    if isinstance(node['cells'][row][col], set):
+                        if n in node['cells'][row][col]:
+                            if removed is False:
+                                removed = True
+                                print('\nPOINTING TUPLE IN A COLUMN!')
+                                print('Box ', box + 1, ' can only have ', n, ' in column ', col + 1)
+                                print(n, ' is removed as a possibility from:')
+                            node['cells'][row][col].discard(n)
+                            print('Row ', row + 1, 'column ', col + 1)
+                if removed is True:
+                    return True, node
+    return False, node
 
 
 def check_solution(node):
@@ -235,6 +322,47 @@ def check_solution(node):
         if len(row_ids) != 9 or len(col_ids) != 9 or len(box_ids) != 9:
             return False
     return True
+
+
+def choose_children(node):
+    child_nodes = []
+    for i, row in enumerate(node['cells']):
+        for j, cell in enumerate(row):
+            if isinstance(cell, set):
+                for value in cell:
+                    child = copy.deepcopy(node)
+                    child['cells'][i][j] = value
+                    child['guess'] = (i, j, value)
+                    child_nodes.append(child)
+                return child_nodes
+    return child_nodes
+
+
+def compile_string(cells):
+    string = ''
+    for i, row in enumerate(cells):
+        for j, cell_value in enumerate(row):
+            if isinstance(cell_value, set):
+                string += str(0)
+            else:
+                string += str(cell_value)
+    return string
+
+
+def print_puzzle(puzzle):
+    size = len(puzzle) ** 0.5
+    puzzle = puzzle.replace('0', ' ')
+    string = ''
+    for i, ch in enumerate(puzzle):
+        if i % size == 0 and i != 0:
+            string += '\n'
+            if i % size ** 1.5 == 0:
+                string += '---+---+---\n'
+        elif i % size ** 0.5 == 0 and i != 0:
+            string += '|'
+        string += str(ch)
+    string += '\n'
+    print(string, flush=True)
 
 
 def create_dict(puzzle):

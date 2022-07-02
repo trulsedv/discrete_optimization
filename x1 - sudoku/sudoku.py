@@ -9,6 +9,7 @@ def main(puzzle):
         if node['guess']:
             print('\n__________________________________________________')
             print('Guessing row ', node['guess'][0] + 1, ' column ', node['guess'][1] + 1, ' is ', node['guess'][2])
+            # pretty(node)
             string = compile_string(node['cells'])
             print_puzzle(string)
         valid, node = pruning(node)
@@ -48,7 +49,11 @@ def pruning(node):
         if valid is False:
             return False, node
 
-        found, node = hidden_singles(node)
+        new = input('Search for new?')
+        if new == 'q':
+            return False, node
+
+        found, node = hidden_singles(node)  # n as input
         if found is True:
             continue
 
@@ -112,7 +117,7 @@ def naked_singles(node):
     return False, node
 
 
-def hidden_singles(node):
+def hidden_singles(node):  # n as input
     size = len(node['cells'])
     for n in range(1, size + 1):  # values
         # BOXES
@@ -128,7 +133,7 @@ def hidden_singles(node):
             if len(ids) == 1:
                 node['cells'][ids[0][0]][ids[0][1]] = n
                 print('\nHIDDEN SINGLE IN A BOX!')
-                print('In box ', i + 1, ' ', n, 'can only be in row ', ids[0][0] + 1, ' column ', ids[0][1] + 1)
+                print('In box ', i + 1, ', ', n, 'can only be in row ', ids[0][0] + 1, ' column ', ids[0][1] + 1)
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
@@ -143,7 +148,7 @@ def hidden_singles(node):
             if len(ids) == 1:
                 node['cells'][i][ids[0]] = n
                 print('\nHIDDEN SINGLE IN A ROW!')
-                print('In row ', i + 1, ' ', n, ' can only be in column ', ids[0] + 1)
+                print('In row ', i + 1, ', ', n, ' can only be in column ', ids[0] + 1)
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
@@ -158,7 +163,7 @@ def hidden_singles(node):
             if len(ids) == 1:
                 node['cells'][ids[0]][i] = n
                 print('\nHIDDEN SINGLE IN A COLUMN!')
-                print('In column ', i + 1, ' ', n, ' can only be in row ', ids[0] + 1)
+                print('In column ', i + 1, ', ', n, ' can only be in row ', ids[0] + 1)
                 string = compile_string(node['cells'])
                 print_puzzle(string)
                 return True, node
@@ -280,6 +285,33 @@ def pointing_tuple(node):
     return False, node
 
 
+def hidden_pairs(node):
+    size = len(node['cells'])
+    for i in range(size):
+        # BOX
+        check_box = []
+        for n in range(1, size + 1):  # values
+            check_box.append(set())
+        r0 = int(size ** 0.5 * int(box / size ** 0.5))
+        c0 = int(size ** 0.5 * (box % size ** 0.5))
+        for row in range(r0, r0 + int(size ** 0.5)):
+            for col in range(c0, c0 + int(size ** 0.5)):
+                for n in range(1, size + 1):  # values
+                    if isinstance(node['cells'][row][col], set):
+                        if n in node['cells'][row][col]:
+                            check_box[n].add((row, col))
+        for n in range(1, size + 1):
+            if len(check_box[n]) == 2:
+                for m in range(n + 1, size + 1):
+                    if check_box[n] == check_box[m]:
+                        
+                        return True, node
+
+
+
+    return False, node
+
+
 def check_solution(node):
     size = len(node['cells'])
     for i in range(size):
@@ -329,7 +361,13 @@ def deepcopy_node(node):
                 'cells': [],
                 'guess': node['guess']}
     for row in node['cells']:
-        deepcopy['cells'].append(row.copy())
+        row_copy = []
+        for cell in row:
+            if isinstance(cell, set):
+                row_copy.append(cell.copy())
+            else:
+                row_copy.append(cell)
+        deepcopy['cells'].append(row_copy)
     return deepcopy
 
 
@@ -360,6 +398,16 @@ def print_puzzle(puzzle):
     print(string, flush=True)
 
 
+def pretty(node):
+    print('puzzle:\t', node['puzzle'])
+    print('solution:\t', node['solution'])
+    print('guess:\t', node['guess'])
+    print('cells:')
+    for row in node['cells']:
+        print(row)
+    print('')
+
+
 def create_dict(puzzle):
     for ch in ["\n", " "]:
         puzzle = puzzle.replace(ch, "")
@@ -368,8 +416,8 @@ def create_dict(puzzle):
 
     node = {"puzzle": puzzle,
             "solution": "",
-            "cells": [],
-            'guess': ''}
+            'guess': '',
+            "cells": []}
 
     # initiate dict as if puzzle was empty
     for i in range(size):  # iterate over rows
